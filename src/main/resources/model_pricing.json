@@ -1,0 +1,61 @@
+{
+  "$schema": "https://modelcost.ai/schemas/model-pricing-v1.json",
+  "version": "2026-02-16",
+  "models": {
+    "gpt-4": {
+      "provider": "openai",
+      "input_cost_per_1k": 0.03,
+      "output_cost_per_1k": 0.06
+    },
+    "gpt-4-turbo": {
+      "provider": "openai",
+      "input_cost_per_1k": 0.01,
+      "output_cost_per_1k": 0.03
+    },
+    "gpt-4o": {
+      "provider": "openai",
+      "input_cost_per_1k": 0.005,
+      "output_cost_per_1k": 0.015
+    },
+    "gpt-4o-mini": {
+      "provider": "openai",
+      "input_cost_per_1k": 0.00015,
+      "output_cost_per_1k": 0.0006
+    },
+    "gpt-3.5-turbo": {
+      "provider": "openai",
+      "input_cost_per_1k": 0.0015,
+      "output_cost_per_1k": 0.002
+    },
+    "claude-opus-4": {
+      "provider": "anthropic",
+      "input_cost_per_1k": 0.015,
+      "output_cost_per_1k": 0.075
+    },
+    "claude-sonnet-4": {
+      "provider": "anthropic",
+      "input_cost_per_1k": 0.003,
+      "output_cost_per_1k": 0.015
+    },
+    "claude-haiku-4": {
+      "provider": "anthropic",
+      "input_cost_per_1k": 0.00025,
+      "output_cost_per_1k": 0.00125
+    },
+    "gemini-1.5-pro": {
+      "provider": "google",
+      "input_cost_per_1k": 0.00125,
+      "output_cost_per_1k": 0.005
+    },
+    "gemini-1.5-flash": {
+      "provider": "google",
+      "input_cost_per_1k": 0.000075,
+      "output_cost_per_1k": 0.0003
+    },
+    "gemini-2.0-flash": {
+      "provider": "google",
+      "input_cost_per_1k": 0.0001,
+      "output_cost_per_1k": 0.0004
+    }
+  }
+}
