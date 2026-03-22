@@ -42,6 +42,13 @@ class ModelCostInstance {
                 new GoogleVertexWrapper(config, client, piiScanner)
         );
 
+        // Synchronous pricing sync before anything uses calculateCost
+        try {
+            CostTracker.syncPricingFromApi(config.getBaseUrl(), config.getApiKey());
+        } catch (Exception e) {
+            logger.warning("Failed to sync pricing on init: " + e.getMessage());
+        }
+
         // Start auto-flush
         costTracker.startAutoFlush(client, config.getFlushIntervalMs());
 
