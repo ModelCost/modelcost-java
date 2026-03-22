@@ -3,6 +3,12 @@ package ai.modelcost.sdk.tracking;
 import ai.modelcost.sdk.ModelCostClient;
 import ai.modelcost.sdk.model.TrackRequest;
 import ai.modelcost.sdk.model.TrackResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -15,11 +21,47 @@ class CostTrackerTest {
 
     private CostTracker costTracker;
     private ModelCostClient mockClient;
+    private MockWebServer mockServer;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         costTracker = new CostTracker(100);
         mockClient = Mockito.mock(ModelCostClient.class);
+
+        // Seed pricing from a mock API so cost calculation tests work
+        mockServer = new MockWebServer();
+        mockServer.start();
+
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode root = mapper.createObjectNode();
+        ArrayNode models = root.putArray("models");
+
+        ObjectNode gpt4o = mapper.createObjectNode();
+        gpt4o.put("model", "gpt-4o");
+        gpt4o.put("provider", "openai");
+        gpt4o.put("input_cost_per_1k", 0.005);
+        gpt4o.put("output_cost_per_1k", 0.015);
+        models.add(gpt4o);
+
+        ObjectNode claudeOpus = mapper.createObjectNode();
+        claudeOpus.put("model", "claude-opus-4");
+        claudeOpus.put("provider", "anthropic");
+        claudeOpus.put("input_cost_per_1k", 0.015);
+        claudeOpus.put("output_cost_per_1k", 0.075);
+        models.add(claudeOpus);
+
+        mockServer.enqueue(new MockResponse()
+                .setBody(mapper.writeValueAsString(root))
+                .addHeader("Content-Type", "application/json"));
+
+        CostTracker.syncPricingFromApi(mockServer.url("/").toString(), "test-key");
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (mockServer != null) {
+            mockServer.shutdown();
+        }
     }
 
     @Test

@@ -5,13 +5,10 @@ import ai.modelcost.sdk.model.TrackRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.logging.Level;
@@ -19,8 +16,8 @@ import java.util.logging.Logger;
 
 /**
  * Tracks AI model usage costs with local buffering and periodic flushing.
- * Pricing table is loaded from sdk/common/model_pricing.json at class-load
- * time, and can be refreshed at runtime via {@link #syncPricingFromApi}.
+ * Pricing table is fetched from the API on init and refreshed periodically
+ * via {@link #syncPricingFromApi}.
  */
 public class CostTracker {
 
@@ -28,98 +25,10 @@ public class CostTracker {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Mutable pricing map. Loaded from JSON at class-load time, refreshed
-     * by {@link #syncPricingFromApi}.
+     * Mutable pricing map. Populated by {@link #syncPricingFromApi} on init
+     * and refreshed periodically. Uses volatile reference swap for thread safety.
      */
-    private static final ConcurrentHashMap<String, ModelPricing> MODEL_PRICING = new ConcurrentHashMap<>();
-
-    static {
-        loadBundledPricing();
-    }
-
-    // ------------------------------------------------------------------
-    // Pricing table loading
-    // ------------------------------------------------------------------
-
-    private static void loadBundledPricing() {
-        // 1. Try classpath (works when packaged as a JAR with the resource bundled)
-        try (InputStream is = CostTracker.class.getClassLoader()
-                .getResourceAsStream("model_pricing.json")) {
-            if (is != null && loadFromStream(is)) {
-                return;
-            }
-        } catch (Exception e) {
-            logger.log(Level.FINE, "Failed to load pricing from classpath", e);
-        }
-
-        // 2. Try filesystem relative paths (development layout)
-        String[] relativePaths = {
-            "sdk/common/model_pricing.json",
-            "../sdk/common/model_pricing.json",
-            "../../sdk/common/model_pricing.json",
-        };
-        for (String relPath : relativePaths) {
-            try {
-                Path p = Path.of(relPath).toAbsolutePath().normalize();
-                if (Files.exists(p)) {
-                    try (InputStream is = Files.newInputStream(p)) {
-                        if (loadFromStream(is)) {
-                            return;
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                logger.log(Level.FINE, "Failed to load pricing from {0}", relPath);
-            }
-        }
-
-        // 3. Hardcoded fallback
-        logger.fine("model_pricing.json not found, using hardcoded fallback");
-        loadHardcodedFallback();
-    }
-
-    private static boolean loadFromStream(InputStream is) {
-        try {
-            JsonNode root = objectMapper.readTree(is);
-            JsonNode models = root.get("models");
-            if (models == null || !models.isObject()) {
-                return false;
-            }
-            Map<String, ModelPricing> loaded = new HashMap<>();
-            models.fields().forEachRemaining(entry -> {
-                String name = entry.getKey();
-                JsonNode info = entry.getValue();
-                loaded.put(name, new ModelPricing(
-                        info.get("provider").asText(),
-                        info.get("input_cost_per_1k").asDouble(),
-                        info.get("output_cost_per_1k").asDouble()
-                ));
-            });
-            if (!loaded.isEmpty()) {
-                MODEL_PRICING.clear();
-                MODEL_PRICING.putAll(loaded);
-                logger.log(Level.FINE, "Loaded pricing for {0} models from JSON", loaded.size());
-                return true;
-            }
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to parse model_pricing.json", e);
-        }
-        return false;
-    }
-
-    private static void loadHardcodedFallback() {
-        MODEL_PRICING.put("gpt-4", new ModelPricing("openai", 0.03, 0.06));
-        MODEL_PRICING.put("gpt-4-turbo", new ModelPricing("openai", 0.01, 0.03));
-        MODEL_PRICING.put("gpt-4o", new ModelPricing("openai", 0.005, 0.015));
-        MODEL_PRICING.put("gpt-4o-mini", new ModelPricing("openai", 0.00015, 0.0006));
-        MODEL_PRICING.put("gpt-3.5-turbo", new ModelPricing("openai", 0.0015, 0.002));
-        MODEL_PRICING.put("claude-opus-4", new ModelPricing("anthropic", 0.015, 0.075));
-        MODEL_PRICING.put("claude-sonnet-4", new ModelPricing("anthropic", 0.003, 0.015));
-        MODEL_PRICING.put("claude-haiku-4", new ModelPricing("anthropic", 0.00025, 0.00125));
-        MODEL_PRICING.put("gemini-1.5-pro", new ModelPricing("google", 0.00125, 0.005));
-        MODEL_PRICING.put("gemini-1.5-flash", new ModelPricing("google", 0.000075, 0.0003));
-        MODEL_PRICING.put("gemini-2.0-flash", new ModelPricing("google", 0.0001, 0.0004));
-    }
+    private static volatile Map<String, ModelPricing> MODEL_PRICING = new ConcurrentHashMap<>();
 
     /**
      * Fetch the latest pricing table from the server and update the local cache.
@@ -162,8 +71,7 @@ public class CostTracker {
             }
 
             if (!updated.isEmpty()) {
-                MODEL_PRICING.clear();
-                MODEL_PRICING.putAll(updated);
+                MODEL_PRICING = new ConcurrentHashMap<>(updated);
                 logger.log(Level.INFO, "Synced pricing table: {0} models", updated.size());
             }
         } catch (Exception e) {
