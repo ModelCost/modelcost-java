@@ -74,18 +74,19 @@ public class OpenAIWrapper implements ProviderWrapper {
                 return null;
             }
 
-            int inputTokens = 0;
+            int promptTokens = 0;
             int outputTokens = 0;
+            int cachedTokens = 0;
 
             try {
                 Method getPromptTokens = usage.getClass().getMethod("getPromptTokens");
                 Object promptTokensObj = getPromptTokens.invoke(usage);
-                inputTokens = ((Number) promptTokensObj).intValue();
+                promptTokens = ((Number) promptTokensObj).intValue();
             } catch (NoSuchMethodException e) {
                 try {
                     Method getTotalTokens = usage.getClass().getMethod("promptTokens");
                     Object promptTokensObj = getTotalTokens.invoke(usage);
-                    inputTokens = ((Number) promptTokensObj).intValue();
+                    promptTokens = ((Number) promptTokensObj).intValue();
                 } catch (NoSuchMethodException ignored) {
                     logger.log(Level.FINE, "Could not find prompt tokens method on usage object");
                 }
@@ -105,7 +106,36 @@ public class OpenAIWrapper implements ProviderWrapper {
                 }
             }
 
-            return new UsageInfo(inputTokens, outputTokens);
+            // Extract cached tokens from prompt_tokens_details.cached_tokens
+            try {
+                Method getPromptTokensDetails = usage.getClass().getMethod("getPromptTokensDetails");
+                Object details = getPromptTokensDetails.invoke(usage);
+                if (details != null) {
+                    try {
+                        Method getCachedTokens = details.getClass().getMethod("getCachedTokens");
+                        Object cachedObj = getCachedTokens.invoke(details);
+                        if (cachedObj != null) {
+                            cachedTokens = ((Number) cachedObj).intValue();
+                        }
+                    } catch (NoSuchMethodException e2) {
+                        try {
+                            Method cachedTokensMethod = details.getClass().getMethod("cachedTokens");
+                            Object cachedObj = cachedTokensMethod.invoke(details);
+                            if (cachedObj != null) {
+                                cachedTokens = ((Number) cachedObj).intValue();
+                            }
+                        } catch (NoSuchMethodException ignored) {
+                            logger.log(Level.FINE, "Could not find cached tokens method on prompt tokens details");
+                        }
+                    }
+                }
+            } catch (NoSuchMethodException ignored) {
+                logger.log(Level.FINE, "Could not find getPromptTokensDetails method on usage object");
+            }
+
+            // Subtract cached from prompt_tokens so inputTokens reflects only non-cached input
+            int inputTokens = Math.max(0, promptTokens - cachedTokens);
+            return new UsageInfo(inputTokens, outputTokens, 0, cachedTokens);
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to extract usage from OpenAI response: " + e.getMessage());
             return null;

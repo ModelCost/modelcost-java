@@ -32,6 +32,12 @@ public interface ProviderWrapper {
     /**
      * Usage information extracted from a provider response.
      */
-    record UsageInfo(int inputTokens, int outputTokens) {
+    record UsageInfo(int inputTokens, int outputTokens, int cacheCreationTokens, int cacheReadTokens) {
+        /**
+         * Convenience constructor for responses without cache token details.
+         */
+        UsageInfo(int inputTokens, int outputTokens) {
+            this(inputTokens, outputTokens, 0, 0);
+        }
     }
 }

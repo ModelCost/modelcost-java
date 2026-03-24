@@ -37,6 +37,12 @@ public class TrackRequest {
     @JsonProperty("output_tokens")
     private final int outputTokens;
 
+    @JsonProperty("cache_creation_tokens")
+    private final Integer cacheCreationTokens;
+
+    @JsonProperty("cache_read_tokens")
+    private final Integer cacheReadTokens;
+
     @JsonProperty("latency_ms")
     private final Long latencyMs;
 
@@ -52,6 +58,8 @@ public class TrackRequest {
         this.customerId = builder.customerId;
         this.inputTokens = builder.inputTokens;
         this.outputTokens = builder.outputTokens;
+        this.cacheCreationTokens = builder.cacheCreationTokens;
+        this.cacheReadTokens = builder.cacheReadTokens;
         this.latencyMs = builder.latencyMs;
         this.metadata = builder.metadata;
     }
@@ -92,6 +100,14 @@ public class TrackRequest {
         return outputTokens;
     }
 
+    public Integer getCacheCreationTokens() {
+        return cacheCreationTokens;
+    }
+
+    public Integer getCacheReadTokens() {
+        return cacheReadTokens;
+    }
+
     public Long getLatencyMs() {
         return latencyMs;
     }
@@ -109,6 +125,8 @@ public class TrackRequest {
         private String customerId;
         private int inputTokens;
         private int outputTokens;
+        private Integer cacheCreationTokens;
+        private Integer cacheReadTokens;
         private Long latencyMs;
         private Map<String, Object> metadata;
 
@@ -152,6 +170,16 @@ public class TrackRequest {
 
         public Builder outputTokens(int outputTokens) {
             this.outputTokens = outputTokens;
+            return this;
+        }
+
+        public Builder cacheCreationTokens(Integer cacheCreationTokens) {
+            this.cacheCreationTokens = cacheCreationTokens;
+            return this;
+        }
+
+        public Builder cacheReadTokens(Integer cacheReadTokens) {
+            this.cacheReadTokens = cacheReadTokens;
             return this;
         }
 
