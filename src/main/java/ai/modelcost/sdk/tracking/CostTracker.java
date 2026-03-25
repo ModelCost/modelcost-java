@@ -63,10 +63,18 @@ public class CostTracker {
             Map<String, ModelPricing> updated = new HashMap<>();
             for (JsonNode entry : modelsNode) {
                 String model = entry.get("model").asText();
+                JsonNode cacheCreationNode = entry.get("cache_creation_cost_per_1k");
+                JsonNode cacheReadNode = entry.get("cache_read_cost_per_1k");
+                Double cacheCreationCost = (cacheCreationNode != null && !cacheCreationNode.isNull())
+                        ? cacheCreationNode.asDouble() : null;
+                Double cacheReadCost = (cacheReadNode != null && !cacheReadNode.isNull())
+                        ? cacheReadNode.asDouble() : null;
                 updated.put(model, new ModelPricing(
                         entry.get("provider").asText(),
                         entry.get("input_cost_per_1k").asDouble(),
-                        entry.get("output_cost_per_1k").asDouble()
+                        entry.get("output_cost_per_1k").asDouble(),
+                        cacheCreationCost,
+                        cacheReadCost
                 ));
             }
 
@@ -86,24 +94,27 @@ public class CostTracker {
         private final String provider;
         private final double inputCostPer1k;
         private final double outputCostPer1k;
+        private final Double cacheCreationCostPer1k;
+        private final Double cacheReadCostPer1k;
 
         public ModelPricing(String provider, double inputCostPer1k, double outputCostPer1k) {
+            this(provider, inputCostPer1k, outputCostPer1k, null, null);
+        }
+
+        public ModelPricing(String provider, double inputCostPer1k, double outputCostPer1k,
+                            Double cacheCreationCostPer1k, Double cacheReadCostPer1k) {
             this.provider = provider;
             this.inputCostPer1k = inputCostPer1k;
             this.outputCostPer1k = outputCostPer1k;
+            this.cacheCreationCostPer1k = cacheCreationCostPer1k;
+            this.cacheReadCostPer1k = cacheReadCostPer1k;
         }
 
-        public String getProvider() {
-            return provider;
-        }
-
-        public double getInputCostPer1k() {
-            return inputCostPer1k;
-        }
-
-        public double getOutputCostPer1k() {
-            return outputCostPer1k;
-        }
+        public String getProvider() { return provider; }
+        public double getInputCostPer1k() { return inputCostPer1k; }
+        public double getOutputCostPer1k() { return outputCostPer1k; }
+        public Double getCacheCreationCostPer1k() { return cacheCreationCostPer1k; }
+        public Double getCacheReadCostPer1k() { return cacheReadCostPer1k; }
     }
 
     /**
@@ -115,6 +126,11 @@ public class CostTracker {
      * @return the estimated cost in USD, or 0.0 if the model is unknown
      */
     public static double calculateCost(String model, int inputTokens, int outputTokens) {
+        return calculateCost(model, inputTokens, outputTokens, 0, 0);
+    }
+
+    public static double calculateCost(String model, int inputTokens, int outputTokens,
+                                        int cacheCreationTokens, int cacheReadTokens) {
         ModelPricing pricing = MODEL_PRICING.get(model);
         if (pricing == null) {
             logger.log(Level.WARNING, "Unknown model for cost calculation: {0}", model);
@@ -122,7 +138,22 @@ public class CostTracker {
         }
         double inputCost = (inputTokens / 1000.0) * pricing.inputCostPer1k;
         double outputCost = (outputTokens / 1000.0) * pricing.outputCostPer1k;
-        return inputCost + outputCost;
+
+        double cacheCreationCost = 0.0;
+        if (cacheCreationTokens > 0) {
+            double rate = pricing.cacheCreationCostPer1k != null
+                    ? pricing.cacheCreationCostPer1k : pricing.inputCostPer1k;
+            cacheCreationCost = (cacheCreationTokens / 1000.0) * rate;
+        }
+
+        double cacheReadCost = 0.0;
+        if (cacheReadTokens > 0) {
+            double rate = pricing.cacheReadCostPer1k != null
+                    ? pricing.cacheReadCostPer1k : pricing.inputCostPer1k;
+            cacheReadCost = (cacheReadTokens / 1000.0) * rate;
+        }
+
+        return inputCost + outputCost + cacheCreationCost + cacheReadCost;
     }
 
     /**
