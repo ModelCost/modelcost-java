@@ -73,18 +73,19 @@ public class GoogleVertexWrapper implements ProviderWrapper {
                 return null;
             }
 
-            int inputTokens = 0;
+            int promptCount = 0;
             int outputTokens = 0;
+            int cachedTokens = 0;
 
             try {
                 Method getPromptTokenCount = usageMetadata.getClass().getMethod("getPromptTokenCount");
                 Object promptObj = getPromptTokenCount.invoke(usageMetadata);
-                inputTokens = ((Number) promptObj).intValue();
+                promptCount = ((Number) promptObj).intValue();
             } catch (NoSuchMethodException e) {
                 try {
                     Method promptTokenCount = usageMetadata.getClass().getMethod("promptTokenCount");
                     Object promptObj = promptTokenCount.invoke(usageMetadata);
-                    inputTokens = ((Number) promptObj).intValue();
+                    promptCount = ((Number) promptObj).intValue();
                 } catch (NoSuchMethodException ignored) {
                     logger.log(Level.FINE, "Could not find prompt token count on Google Vertex usage metadata");
                 }
@@ -104,7 +105,28 @@ public class GoogleVertexWrapper implements ProviderWrapper {
                 }
             }
 
-            return new UsageInfo(inputTokens, outputTokens);
+            // Extract cached content token count from usageMetadata
+            try {
+                Method getCachedContentTokenCount = usageMetadata.getClass().getMethod("getCachedContentTokenCount");
+                Object cachedObj = getCachedContentTokenCount.invoke(usageMetadata);
+                if (cachedObj != null) {
+                    cachedTokens = ((Number) cachedObj).intValue();
+                }
+            } catch (NoSuchMethodException e) {
+                try {
+                    Method cachedContentTokenCount = usageMetadata.getClass().getMethod("cachedContentTokenCount");
+                    Object cachedObj = cachedContentTokenCount.invoke(usageMetadata);
+                    if (cachedObj != null) {
+                        cachedTokens = ((Number) cachedObj).intValue();
+                    }
+                } catch (NoSuchMethodException ignored) {
+                    logger.log(Level.FINE, "Could not find cached content token count on Google Vertex usage metadata");
+                }
+            }
+
+            // Subtract cached from prompt count so inputTokens reflects only non-cached input
+            int inputTokens = Math.max(0, promptCount - cachedTokens);
+            return new UsageInfo(inputTokens, outputTokens, 0, cachedTokens);
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to extract usage from Google Vertex response: " + e.getMessage());
             return null;

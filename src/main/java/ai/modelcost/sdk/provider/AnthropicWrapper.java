@@ -75,6 +75,8 @@ public class AnthropicWrapper implements ProviderWrapper {
 
             int inputTokens = 0;
             int outputTokens = 0;
+            int cacheCreationTokens = 0;
+            int cacheReadTokens = 0;
 
             try {
                 Method getInputTokens = usage.getClass().getMethod("getInputTokens");
@@ -104,7 +106,45 @@ public class AnthropicWrapper implements ProviderWrapper {
                 }
             }
 
-            return new UsageInfo(inputTokens, outputTokens);
+            // Anthropic reports cache_creation_input_tokens and cache_read_input_tokens
+            // separately from input_tokens (input_tokens already excludes cache — no subtraction needed)
+            try {
+                Method getCacheCreation = usage.getClass().getMethod("getCacheCreationInputTokens");
+                Object cacheCreateObj = getCacheCreation.invoke(usage);
+                if (cacheCreateObj != null) {
+                    cacheCreationTokens = ((Number) cacheCreateObj).intValue();
+                }
+            } catch (NoSuchMethodException e) {
+                try {
+                    Method cacheCreation = usage.getClass().getMethod("cacheCreationInputTokens");
+                    Object cacheCreateObj = cacheCreation.invoke(usage);
+                    if (cacheCreateObj != null) {
+                        cacheCreationTokens = ((Number) cacheCreateObj).intValue();
+                    }
+                } catch (NoSuchMethodException ignored) {
+                    logger.log(Level.FINE, "Could not find cache creation input tokens on Anthropic usage");
+                }
+            }
+
+            try {
+                Method getCacheRead = usage.getClass().getMethod("getCacheReadInputTokens");
+                Object cacheReadObj = getCacheRead.invoke(usage);
+                if (cacheReadObj != null) {
+                    cacheReadTokens = ((Number) cacheReadObj).intValue();
+                }
+            } catch (NoSuchMethodException e) {
+                try {
+                    Method cacheRead = usage.getClass().getMethod("cacheReadInputTokens");
+                    Object cacheReadObj = cacheRead.invoke(usage);
+                    if (cacheReadObj != null) {
+                        cacheReadTokens = ((Number) cacheReadObj).intValue();
+                    }
+                } catch (NoSuchMethodException ignored) {
+                    logger.log(Level.FINE, "Could not find cache read input tokens on Anthropic usage");
+                }
+            }
+
+            return new UsageInfo(inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens);
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to extract usage from Anthropic response: " + e.getMessage());
             return null;
