@@ -228,10 +228,14 @@ public class ModelCostClient {
             String responseBody = response.body() != null ? response.body().string() : "";
 
             if (!response.isSuccessful()) {
-                consecutiveFailures.incrementAndGet();
-                if (consecutiveFailures.get() >= FAILURE_THRESHOLD) {
-                    circuitOpenUntil.set(System.currentTimeMillis() + COOLDOWN_MS);
-                    logger.log(Level.WARNING, "Circuit breaker opened after {0} consecutive failures", FAILURE_THRESHOLD);
+                // Only count 5xx (server) errors toward the circuit breaker.
+                // 4xx errors are client-side issues and should not trip the breaker.
+                if (response.code() >= 500) {
+                    consecutiveFailures.incrementAndGet();
+                    if (consecutiveFailures.get() >= FAILURE_THRESHOLD) {
+                        circuitOpenUntil.set(System.currentTimeMillis() + COOLDOWN_MS);
+                        logger.log(Level.WARNING, "Circuit breaker opened after {0} consecutive failures", FAILURE_THRESHOLD);
+                    }
                 }
 
                 ErrorResponse errorResponse = null;
