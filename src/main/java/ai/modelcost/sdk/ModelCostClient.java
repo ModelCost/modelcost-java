@@ -93,7 +93,7 @@ public class ModelCostClient {
         Request httpRequest = new Request.Builder()
                 .url(url)
                 .post(RequestBody.create("", JSON_MEDIA_TYPE))
-                .addHeader("Authorization", "Bearer " + config.getApiKey())
+                .addHeader("X-API-Key", config.getApiKey())
                 .addHeader("Content-Type", "application/json")
                 .build();
 
@@ -146,7 +146,7 @@ public class ModelCostClient {
         Request httpRequest = new Request.Builder()
                 .url(url)
                 .get()
-                .addHeader("Authorization", "Bearer " + config.getApiKey())
+                .addHeader("X-API-Key", config.getApiKey())
                 .build();
 
         return executeRequest(httpRequest, BudgetStatusResponse.class);
@@ -283,7 +283,7 @@ public class ModelCostClient {
         return new Request.Builder()
                 .url(config.getBaseUrl() + path)
                 .post(RequestBody.create(json, JSON_MEDIA_TYPE))
-                .addHeader("Authorization", "Bearer " + config.getApiKey())
+                .addHeader("X-API-Key", config.getApiKey())
                 .addHeader("Content-Type", "application/json")
                 .build();
     }
