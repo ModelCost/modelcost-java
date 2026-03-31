@@ -70,7 +70,7 @@ class ModelCostClientTest {
         RecordedRequest recorded = mockServer.takeRequest();
         assertEquals("POST", recorded.getMethod());
         assertEquals("/api/v1/track", recorded.getPath());
-        assertTrue(recorded.getHeader("Authorization").contains("mc_test_key"));
+        assertEquals("mc_test_key", recorded.getHeader("X-API-Key"));
 
         String body = recorded.getBody().readUtf8();
         assertTrue(body.contains("\"api_key\":\"mc_test_key\""));
