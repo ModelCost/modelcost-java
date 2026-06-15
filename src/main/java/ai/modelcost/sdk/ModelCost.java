@@ -2,7 +2,7 @@ package ai.modelcost.sdk;
 
 import ai.modelcost.sdk.exception.ConfigurationException;
 import ai.modelcost.sdk.model.BudgetCheckResponse;
-import ai.modelcost.sdk.model.GovernanceScanResponse;
+import ai.modelcost.sdk.pii.PiiScanner;
 import ai.modelcost.sdk.session.SessionContext;
 
 /**
@@ -76,13 +76,14 @@ public final class ModelCost {
     }
 
     /**
-     * Scans text for PII using the governance API.
+     * Scans text for PII/PHI/secrets entirely LOCALLY (in-process). The text is never
+     * transmitted to ModelCost — there is no server-side content scan.
      *
      * @param text the text to scan
-     * @return the governance scan response
+     * @return the local full-scan result (violation types + offsets, no raw content)
      * @throws ConfigurationException if the SDK has not been initialized
      */
-    public static GovernanceScanResponse scanPii(String text) {
+    public static PiiScanner.FullScanResult scanPii(String text) {
         ensureInitialized();
         return instance.scanPii(text);
     }

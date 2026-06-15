@@ -1,16 +1,21 @@
 package ai.modelcost.sdk.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.Instant;
-import java.util.Map;
 import java.util.Objects;
 
 /**
  * Request payload for tracking AI model usage.
+ *
+ * <p>Closed egress DTO: every field is safe telemetry or an opaque identifier ref.
+ * There is intentionally no raw-content or free-form metadata field — that is the
+ * architectural guarantee, proven by the egress invariant test.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown = false)
 public class TrackRequest {
 
     @JsonProperty("api_key")
@@ -28,6 +33,8 @@ public class TrackRequest {
     @JsonProperty("feature")
     private final String feature;
 
+    // Opaque, customer-controlled ref (HMAC-pseudonymized if a secret is set).
+    // Never a raw email/MRN/name — see ai.modelcost.sdk.Identifiers.
     @JsonProperty("customer_id")
     private final String customerId;
 
@@ -46,9 +53,6 @@ public class TrackRequest {
     @JsonProperty("latency_ms")
     private final Long latencyMs;
 
-    @JsonProperty("metadata")
-    private final Map<String, Object> metadata;
-
     private TrackRequest(Builder builder) {
         this.apiKey = builder.apiKey;
         this.timestamp = builder.timestamp;
@@ -61,7 +65,6 @@ public class TrackRequest {
         this.cacheCreationTokens = builder.cacheCreationTokens;
         this.cacheReadTokens = builder.cacheReadTokens;
         this.latencyMs = builder.latencyMs;
-        this.metadata = builder.metadata;
     }
 
     public static Builder builder() {
@@ -112,10 +115,6 @@ public class TrackRequest {
         return latencyMs;
     }
 
-    public Map<String, Object> getMetadata() {
-        return metadata;
-    }
-
     public static class Builder {
         private String apiKey;
         private Instant timestamp = Instant.now();
@@ -128,7 +127,6 @@ public class TrackRequest {
         private Integer cacheCreationTokens;
         private Integer cacheReadTokens;
         private Long latencyMs;
-        private Map<String, Object> metadata;
 
         private Builder() {
         }
@@ -188,9 +186,16 @@ public class TrackRequest {
             return this;
         }
 
-        public Builder metadata(Map<String, Object> metadata) {
-            this.metadata = metadata;
-            return this;
+        /**
+         * @deprecated Removed in 0.4.0. The free-form metadata channel could carry
+         *     arbitrary PII/PHI off-box, so it no longer exists. This setter throws to
+         *     surface the change rather than silently drop data.
+         */
+        @Deprecated
+        public Builder metadata(java.util.Map<String, Object> metadata) {
+            throw new UnsupportedOperationException(
+                    "TrackRequest.metadata was removed in modelcost 0.4.0 to make PII/PHI egress "
+                            + "impossible. Use the opaque 'feature' / 'customerId' refs instead.");
         }
 
         public TrackRequest build() {
