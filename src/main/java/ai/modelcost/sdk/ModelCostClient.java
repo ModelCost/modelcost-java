@@ -101,22 +101,6 @@ public class ModelCostClient {
     }
 
     /**
-     * Scans text for PII and governance violations.
-     *
-     * @param request the governance scan request
-     * @return the scan response
-     */
-    public GovernanceScanResponse scanText(GovernanceScanRequest request) {
-        try {
-            String json = objectMapper.writeValueAsString(request);
-            Request httpRequest = newPostRequest("/api/v1/governance/scan", json);
-            return executeRequest(httpRequest, GovernanceScanResponse.class);
-        } catch (IOException e) {
-            throw handleException("Failed to serialize governance scan request", e);
-        }
-    }
-
-    /**
      * Reports a governance signal (metadata-only mode). Fire-and-forget.
      *
      * @param request the signal request

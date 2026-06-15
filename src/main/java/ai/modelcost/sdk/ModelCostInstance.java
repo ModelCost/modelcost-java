@@ -79,26 +79,25 @@ class ModelCostInstance {
         return budgetManager.check(client, config.getOrgId(), scope + ":" + id, 0.0);
     }
 
-    GovernanceScanResponse scanPii(String text) {
-        GovernanceScanRequest request = GovernanceScanRequest.builder()
-                .orgId(config.getOrgId())
-                .text(text)
-                .environment(config.getEnvironment())
-                .build();
-
-        return client.scanText(request);
+    PiiScanner.FullScanResult scanPii(String text) {
+        // Local-only: content never leaves the customer environment.
+        return piiScanner.fullScan(text, null);
     }
 
     SessionContext startSession(String feature, Double maxSpendUsd, Integer maxIterations, String userId) {
         String sessionId = UUID.randomUUID().toString();
-        SessionContext session = new SessionContext(sessionId, feature, userId, maxSpendUsd, maxIterations);
+        // feature is a label (validate, keep readable); userId is an entity ref that must
+        // leave as an opaque token (HMAC-pseudonymized when a secret is configured).
+        String safeFeature = Identifiers.opaqueRef(feature, null, "feature", false);
+        String userRef = Identifiers.opaqueRef(userId, config.getIdentifierSecret(), "userId", true);
+        SessionContext session = new SessionContext(sessionId, safeFeature, userRef, maxSpendUsd, maxIterations);
 
         try {
             CreateSessionRequest request = CreateSessionRequest.builder()
                     .apiKey(config.getApiKey())
                     .sessionId(sessionId)
-                    .feature(feature)
-                    .userId(userId)
+                    .feature(safeFeature)
+                    .userId(userRef)
                     .maxSpendUsd(maxSpendUsd)
                     .maxIterations(maxIterations)
                     .build();

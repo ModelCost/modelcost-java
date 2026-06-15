@@ -27,7 +27,7 @@ public final class ModelCostConfig {
     private final long flushIntervalMs;
     private final int flushBatchSize;
     private final long syncIntervalMs;
-    private final boolean contentPrivacy;
+    private final String identifierSecret;
 
     private ModelCostConfig(Builder builder) {
         this.apiKey = builder.apiKey;
@@ -40,7 +40,7 @@ public final class ModelCostConfig {
         this.flushIntervalMs = builder.flushIntervalMs;
         this.flushBatchSize = builder.flushBatchSize;
         this.syncIntervalMs = builder.syncIntervalMs;
-        this.contentPrivacy = builder.contentPrivacy;
+        this.identifierSecret = builder.identifierSecret;
     }
 
     public static Builder builder() {
@@ -79,9 +79,9 @@ public final class ModelCostConfig {
             builder.baseUrl(baseUrl);
         }
 
-        String contentPrivacy = resolveEnv("MODELCOST_CONTENT_PRIVACY");
-        if (contentPrivacy != null) {
-            builder.contentPrivacy("true".equalsIgnoreCase(contentPrivacy));
+        String identifierSecret = resolveEnv("MODELCOST_IDENTIFIER_SECRET");
+        if (identifierSecret != null) {
+            builder.identifierSecret(identifierSecret);
         }
 
         return builder.build();
@@ -135,8 +135,12 @@ public final class ModelCostConfig {
         return syncIntervalMs;
     }
 
-    public boolean isContentPrivacy() {
-        return contentPrivacy;
+    /**
+     * Optional customer-held secret used ONLY locally to pseudonymize identifier refs
+     * (customer_id / user_id) via HMAC. Never transmitted to ModelCost.
+     */
+    public String getIdentifierSecret() {
+        return identifierSecret;
     }
 
     /**
@@ -153,7 +157,7 @@ public final class ModelCostConfig {
         private long flushIntervalMs = 5000;
         private int flushBatchSize = 100;
         private long syncIntervalMs = 10000;
-        private boolean contentPrivacy = false;
+        private String identifierSecret;
 
         private Builder() {
         }
@@ -208,8 +212,24 @@ public final class ModelCostConfig {
             return this;
         }
 
+        /**
+         * @deprecated Removed in 0.4.0. Prompt/response content is never transmitted by
+         *     any code path, so this flag no longer exists. This setter throws to surface
+         *     the change rather than silently no-op. Remove the call.
+         */
+        @Deprecated
         public Builder contentPrivacy(boolean contentPrivacy) {
-            this.contentPrivacy = contentPrivacy;
+            throw new UnsupportedOperationException(
+                    "contentPrivacy was removed in modelcost 0.4.0: prompt/response content is "
+                            + "never transmitted to ModelCost by any code path. Remove this call.");
+        }
+
+        /**
+         * Sets the optional customer-held secret used to locally pseudonymize identifier
+         * refs (HMAC). Never transmitted. Also readable from MODELCOST_IDENTIFIER_SECRET.
+         */
+        public Builder identifierSecret(String identifierSecret) {
+            this.identifierSecret = identifierSecret;
             return this;
         }
 

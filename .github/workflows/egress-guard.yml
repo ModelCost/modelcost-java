@@ -1,0 +1,32 @@
+name: Egress Guard
+
+# Defense-in-depth: fail the build if any content/PII-transmitting path is
+# reintroduced, and run the enforced outbound-payload invariant tests.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  egress-guard:
+    name: Egress allowlist guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Static guard (no content-transmitting paths)
+        run: bash scripts/egress_guard.sh
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Enforced egress invariant tests
+        run: mvn -B test -Dtest=EgressInvariantTest,IdentifiersTest
